@@ -55,7 +55,7 @@ The purpose of this document and the underlying system is:
 
 ```text - [ ] **3 — Repo scaffold**
 
-(repo root)
+(Proposed System Repo Setup)
 ├─ cosmic_laws/
 │  ├─ systemic_intelligence_algorithm.py
 │  ├─ systemic_reasoning_algorithm.py
