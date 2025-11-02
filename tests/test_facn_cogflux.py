@@ -1,11 +1,6 @@
-import os
-import sys
 import numpy as np
 
-# Make repo root importable for NNNC module
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-import NNNC
+from reference_impl import NNNC
 
 
 def test_facn_basic():

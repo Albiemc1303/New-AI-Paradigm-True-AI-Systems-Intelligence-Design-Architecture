@@ -1,8 +1,8 @@
 """Basic sanity check for NNNC reference implementation"""
 import numpy as np
-from NNNC import NNNCCore
-from neutral_environment_space import NeutralEnvironmentSpace
-from systemic_algorithms_impl import InterAlgorithmCommunicationProtocol
+from reference_impl.NNNC import NNNCCore
+from reference_impl.neutral_environment_space import NeutralEnvironmentSpace
+from reference_impl.systemic_algorithms_impl import InterAlgorithmCommunicationProtocol
 
 def test_basic_operation():
     """Test basic instantiation and one cognitive cycle"""
