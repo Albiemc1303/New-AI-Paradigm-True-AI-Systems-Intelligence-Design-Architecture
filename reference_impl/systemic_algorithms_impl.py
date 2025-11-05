@@ -182,8 +182,7 @@ class SymmetryAlgorithm:
         """Measure alignment with objective truth"""
         if np.all(belief == 0) or np.all(objective_reality == 0):
             return 0.0
-        alignment = 1.0 - cosine(belief, objective_reality)
-        return alignment
+        return 1.0 - cosine(belief, objective_reality)
 
     def epistemic_consistency_check(self, beliefs: List[np.ndarray]) -> float:
         """Ensure internal consistency of beliefs"""
