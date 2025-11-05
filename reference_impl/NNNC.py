@@ -150,7 +150,7 @@ class CogFluxEngine:
 
     def _build_graph(self):
         dim_names = list(self.dimensions.keys())
-        for i, dim1 in enumerate(dim_names):
+        for dim1 in dim_names:
             self.graph.add_node(dim1, capacity=self.dimensions[dim1])
         for i, dim1 in enumerate(dim_names):
             for dim2 in dim_names[i + 1:]:
