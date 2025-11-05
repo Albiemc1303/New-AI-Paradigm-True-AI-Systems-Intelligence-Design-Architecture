@@ -129,12 +129,13 @@ class CriticalThinkingAlgorithm:
         return {"verified": verified, "confidence": evidence_support, "status": status}
 
     def detect_logical_fallacy(self, argument: np.ndarray) -> Dict[str, float]:
-        """Detect common logical fallacies (toy)"""
+        """Detect common logical fallacies (toy, reproducible)"""
+        # Use fixed patterns for reproducibility
         fallacy_patterns = {
-            "circular_reasoning": np.random.rand(len(argument)),
-            "ad_hominem": np.random.rand(len(argument)),
-            "false_dichotomy": np.random.rand(len(argument)),
-            "appeal_to_authority": np.random.rand(len(argument)),
+            "circular_reasoning": np.linspace(0, 1, len(argument)),
+            "ad_hominem": np.ones(len(argument)),
+            "false_dichotomy": np.zeros(len(argument)),
+            "appeal_to_authority": np.full(len(argument), 0.5),
         }
         fallacy_scores = {}
         for fallacy_type, pattern in fallacy_patterns.items():
