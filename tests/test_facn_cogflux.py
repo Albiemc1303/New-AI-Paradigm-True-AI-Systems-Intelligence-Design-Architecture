@@ -25,6 +25,16 @@ def test_cogflux_efficiency_and_vector():
     assert isinstance(vec, np.ndarray)
     assert vec.shape[0] == 6
 
+def test_cogflux_zero_dimensions():
+    cf = NNNC.CogFluxEngine(num_dimensions=0)
+    eta = cf.calculate_global_efficiency()
+    total = cf.calculate_total_capacity()
+    vec = cf.get_capacity_vector()
+    assert isinstance(eta, float)
+    assert isinstance(total, float)
+    assert isinstance(vec, np.ndarray)
+    assert vec.shape[0] == 0
+
 
 def test_cogflux_edge_case_single_node():
     cf = NNNC.CogFluxEngine(num_dimensions=1)
