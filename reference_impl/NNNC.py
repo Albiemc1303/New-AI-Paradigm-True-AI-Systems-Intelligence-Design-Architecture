@@ -95,9 +95,11 @@ class SubconsciousMemory:
         if not self.narrative_attractors:
             return np.zeros(16)
         base_influence = np.zeros(16)
+        import hashlib
         for concept, strength in self.narrative_attractors.items():
-            concept_hash = self._hash_vector(np.random.rand(self.vector_dim))
-            hash_value = int(concept_hash[:8], 2) % 16
+            # Deterministically hash the concept name to assign influence index
+            concept_hash = hashlib.sha256(concept.encode('utf-8')).hexdigest()
+            hash_value = int(concept_hash[:8], 16) % 16
             base_influence[hash_value] += strength * 0.1
         if context_vector is not None and len(self.episodic_store) > 0:
             recent_memories = self.episodic_store[-10:]
