@@ -6,5 +6,5 @@ app = "prov-eng"
 [env]
   PROVENANCE_API_TOKEN = "changeme"
 
-[experimental]
-  allowed_public_ports = [8080]
+[env]
+PORT = "8080"
