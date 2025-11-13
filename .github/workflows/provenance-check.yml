@@ -1,12 +1,65 @@
-name: Provenance Check
+name: Provenance Engine Confirm # Or "Provenance Check"
 permissions:
   contents: read
-
-on: [pull_request]
+on:
+  pull_request:
+    types: [opened, synchronize, reopened] # Or just [pull_request]
 
 jobs:
-  check:
+  provenance_check: # Or "check"
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Collect diff
+        id: diff
+        run: |
+          echo "DIFF<<EOF" >> $GITHUB_ENV
+          git diff HEAD~1 HEAD >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Send to Provenance Engine
+        id: check
+        run: |
+          BODY=$(jq -n \
+            --arg repo "${GITHUB_REPOSITORY}" \
+            --arg branch "${GITHUB_HEAD_REF}" \
+            --arg commit "${GITHUB_SHA}" \
+            --arg author "${GITHUB_ACTOR}" \
+            --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+            --arg pr "${{ github.event.pull_request.number }}" \
+            --arg diff "${DIFF}" \
+            --argjson files "[] | . += [$(
+                git diff --name-only HEAD~1 HEAD | jq -R . | jq -s .
+              )]" \
+            '{repo: $repo, branch: $branch, commit: $commit, author: $author, timestamp: $timestamp, pr_number: ($pr|tonumber), diff: $diff, files_changed: $files}'
+          )
+
+          RESPONSE=$(curl -s -X POST "https://fly.io/apps/the-provenance-engine/deployments/538318" \
+            -H "Authorization: Bearer ${{ secrets.PROVENANCE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY")
+
+          echo "$RESPONSE" > response.json
+
+          STATUS=$(jq -r '.status' response.json)
+
+          if [ "$STATUS" != "pass" ]; then
+            echo "❌ Provenance validation failed."
+            cat response.json
+            exit 1
+          fi
+
+          echo "✅ Provenance validation passed."
+
+
+    name: Provenance Check
+    permissions:
+  contents: read
+
+  on: [pull_request]
+  runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       
