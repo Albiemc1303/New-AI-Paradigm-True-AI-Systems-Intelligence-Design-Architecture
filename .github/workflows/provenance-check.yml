@@ -1,0 +1,113 @@
+name: Provenance Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  provenance_check:
+    runs-on: ubuntu-latest
+    steps:
+      # --- Checkout repository ---
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # --- Set up Python ---
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      # --- Collect PR diff and encode ---
+      - name: Collect diff
+        id: diff
+        run: |
+          git diff HEAD~1 HEAD > diff.txt
+          DIFF_B64=$(base64 -w 0 diff.txt)
+          echo "DIFF_B64=$DIFF_B64" >> $GITHUB_ENV
+
+      # --- Prepare artifact metadata (optional) ---
+      - name: Collect artifacts metadata
+        id: artifacts
+        run: |
+          ARTIFACTS_JSON=$(jq -n '[]')
+          # Example: gather SHA256 hashes for files in artifacts/ folder
+          for f in artifacts/*; do
+            if [ -f "$f" ]; then
+              HASH=$(sha256sum "$f" | awk "{print \$1}")
+              ARTIFACTS_JSON=$(echo "$ARTIFACTS_JSON" | jq ". += [{\"path\":\"$f\",\"hash\":\"$HASH\"}]")
+            fi
+          done
+          echo "ARTIFACTS=$ARTIFACTS_JSON" >> $GITHUB_ENV
+
+      # --- Send diff + metadata to Provenance Engine ---
+      - name: Send to Provenance Engine
+        id: provenance
+        run: |
+          BODY=$(jq -n \
+            --arg repo "${GITHUB_REPOSITORY}" \
+            --arg branch "${GITHUB_HEAD_REF}" \
+            --arg commit "${GITHUB_SHA}" \
+            --arg author "${GITHUB_ACTOR}" \
+            --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+            --arg pr "${{ github.event.pull_request.number }}" \
+            --arg diff "${DIFF_B64}" \
+            --argjson files "[] | . += [$(
+                git diff --name-only HEAD~1 HEAD | jq -R . | jq -s .
+              )]" \
+            --argjson metadata "{\"artifacts\": $ARTIFACTS}" \
+            '{repo: $repo, branch: $branch, commit: $commit, author: $author, timestamp: $timestamp, pr_number: ($pr|tonumber), diff: $diff, files_changed: $files, metadata: $metadata}'
+          )
+
+          RESPONSE=$(curl -s -X POST "https://prov-eng.fly.dev/provenance/check
+" \
+            -H "Authorization: Bearer ${{ secrets.PROVENANCE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY")
+
+          echo "$RESPONSE" > response.json
+          STATUS=$(jq -r '.status' response.json)
+
+          if [ "$STATUS" != "pass" ]; then
+            echo "❌ Provenance validation failed."
+            cat response.json
+            exit 1
+          fi
+
+          echo "✅ Provenance validation passed."
+
+      # --- Verify base branch provenance locally ---
+      - name: Verify base branch provenance
+        run: |
+          curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3.raw" \
+            -o base_provenance.json \
+            "${{ github.api_url }}/repos/${{ github.repository }}/contents/.provenance/PROVENANCE.signed.json?ref=${{ github.base_ref }}"
+
+          python - <<'PYTHON', import json, import hashlib, from pathlib import Path,
+
+def verify_provenance(signed_json):
+    with open(signed_json) as f:
+        data = json.load(f)
+    
+    # Verify artifacts exist and hashes match
+    for artifact in data.get("artifacts", []):
+        path = artifact["path"]
+        expected_hash = artifact["hash"]
+        if not Path(path).exists():
+            return False, f"Missing artifact: {path}"
+        actual_hash = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        if actual_hash != expected_hash:
+            return False, f"Hash mismatch for {path}"
+    
+    return True, "Provenance verified"
+
+ok, msg = verify_provenance("base_provenance.json")
+if not ok:
+    print(f"❌ Base provenance check failed: {msg}")
+    exit(1)
+print("✅ Base provenance check passed")
+PYTHON
